@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>揪出風水盲點大挑戰！</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #app {
+            width: 100vw;
+            height: 100dvh;
+            max-width: calc(100dvh * 750 / 1344);
+            max-height: 100dvh;
+            background: #fdfbf7;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: #fdfbf7;
+            overflow: hidden;
+        }
+        .screen.active {
+            display: flex;
+        }
+        
+        /* 封面畫面 */
+        .cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        
+        /* 封面開始遊戲按鈕 (左上 172,1092 / 右下 578,1171) */
+        .start-btn-area {
+            position: absolute;
+            top: 81.25%;
+            left: 22.93%;
+            width: 54.13%;
+            height: 5.88%;
+            cursor: pointer;
+            background: transparent;
+            z-index: 10;
+        }
+
+        /* 遊戲主畫面 */
+        .game-view {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+        
+        /* 隱形點擊熱區 */
+        .hotspot {
+            position: absolute;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        /* 結算畫面：滿版背景模式 */
+        .result-screen {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        /* 1、紅色長方形熱區 (左上 92,943 / 右下 650,1174) */
+        .btn-line-link {
+            position: absolute;
+            top: 70.16%;
+            left: 12.27%;
+            width: 74.4%;
+            height: 17.18%;
+            cursor: pointer;
+            background: transparent;
+            z-index: 10;
+        }
+        
+        /* 2、藍色長方形熱區 (左上 172,1204 / 右下 348,1276) */
+        .btn-restart {
+            position: absolute;
+            top: 89.58%;
+            left: 22.93%;
+            width: 23.47%;
+            height: 5.36%;
+            cursor: pointer;
+            background: transparent;
+            z-index: 10;
+            border: none;
+        }
+
+        /* 3、綠色長方形熱區 (左上 382,1206 / 右下 565,1277) */
+        .btn-share {
+            position: absolute;
+            top: 89.73%;
+            left: 50.93%;
+            width: 24.4%;
+            height: 5.28%;
+            cursor: pointer;
+            background: transparent;
+            z-index: 10;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- 1. 封面畫面 -->
+    <div id="screen-cover" class="screen active">
+        <img src="封面.png" class="cover-img" alt="封面">
+        <div class="start-btn-area" onclick="startGame()"></div>
+    </div>
+
+    <!-- 2. 遊戲房間畫面 -->
+    <div id="screen-game" class="screen">
+        <div id="game-room" class="game-view" style="background-image: url('進入遊戲的待機畫面.png');">
+            <!-- 三個正確的風水盲點熱區 -->
+            <div class="hotspot" style="top: 17%; left: 9%; width: 44%; height: 13%; transform: rotate(-26deg); transform-origin: top left;" onclick="clickCorrect(1)"></div>
+            <div class="hotspot" style="top: 21%; left: 59%; width: 15%; height: 24%;" onclick="clickCorrect(2)"></div>
+            <div class="hotspot" style="top: 39%; left: 59%; width: 24%; height: 21%;" onclick="clickCorrect(3)"></div>
+        </div>
+    </div>
+
+    <!-- 3. 結算畫面 -->
+    <div id="screen-result" class="screen">
+        <div id="result-screen" class="result-screen">
+            <!-- 紅色長方形：開啟 LINE 連結 -->
+            <div class="btn-line-link" onclick="openLine()"></div>
+            <!-- 藍色長方形：重新開始遊戲 -->
+            <div class="btn-restart" onclick="restartGame()"></div>
+            <!-- 綠色長方形：分享結果 -->
+            <div class="btn-share" onclick="shareResult()"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let foundItems = [];
+    let errorCount = 0;
+
+    function startGame() {
+        document.getElementById('screen-cover').classList.remove('active');
+        document.getElementById('screen-game').classList.add('active');
+        resetGameData();
+    }
+
+    function resetGameData() {
+        foundItems = [];
+        errorCount = 0;
+        document.getElementById('game-room').style.backgroundImage = "url('進入遊戲的待機畫面.png')";
+    }
+
+    document.getElementById('game-room').addEventListener('click', function(e) {
+        if (e.target === this) {
+            errorCount++;
+            document.getElementById('game-room').style.backgroundImage = "url('找錯了.png')";
+        }
+    });
+
+    function clickCorrect(id) {
+        event.stopPropagation();
+        
+        if (!foundItems.includes(id)) {
+            foundItems.push(id);
+            
+            if (id === 1) {
+                document.getElementById('game-room').style.backgroundImage = "url('第一個點.png')";
+            } else if (id === 2) {
+                document.getElementById('game-room').style.backgroundImage = "url('第二個點.png')";
+            } else if (id === 3) {
+                document.getElementById('game-room').style.backgroundImage = "url('第三個點.png')";
+            }
+        }
+
+        if (foundItems.length === 3) {
+            setTimeout(showResult, 1500);
+        }
+    }
+
+    function showResult() {
+        document.getElementById('screen-game').classList.remove('active');
+        document.getElementById('screen-result').classList.add('active');
+
+        const resultScreen = document.getElementById('result-screen');
+        
+        if (errorCount === 0) {
+            resultScreen.style.backgroundImage = "url('A等級.png')";
+        } else if (errorCount >= 1 && errorCount <= 3) {
+            resultScreen.style.backgroundImage = "url('B等級.png')";
+        } else {
+            resultScreen.style.backgroundImage = "url('C等級.png')";
+        }
+    }
+
+    function openLine() {
+        window.location.href = "https://actshop.io/r/71118e";
+    }
+
+    function restartGame() {
+        document.getElementById('screen-result').classList.remove('active');
+        document.getElementById('screen-cover').classList.add('active');
+        resetGameData();
+    }
+
+    function shareResult() {
+        if (navigator.share) {
+            navigator.share({
+                title: '揪出風水盲點大挑戰',
+                text: '快來看看你的居家風水功力到哪個等級！',
+                url: window.location.href
+            }).catch(() => {
+                alert("已複製分享連結！");
+            });
+        } else {
+            alert("已複製連結，歡迎分享給好友挑戰！");
+        }
+    }
+</script>
+
+</body>
+</html>
