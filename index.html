@@ -168,10 +168,23 @@
     let foundItems = [];
     let errorCount = 0;
     const imageCacheStatus = {};
+    const preloadedImages = [];
+    let preloadReady = false;
+
+    const PRELOAD_URLS = [
+        '進入遊戲的待機畫面.png',
+        '找錯了.png',
+        '第一個點.png',
+        '第二個點.png',
+        '第三個點.png',
+        'A等級.png',
+        'B等級.png',
+        'C等級.png'
+    ];
 
     // #region agent log
     function dbg(hypothesisId, location, message, data) {
-        fetch('http://127.0.0.1:7370/ingest/6ef55512-ae4e-4d4b-a1b8-01ea756a5133',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd60a9'},body:JSON.stringify({sessionId:'cd60a9',runId:'pre-fix',hypothesisId:hypothesisId,location:location,message:message,data:data||{},timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7390/ingest/6486fe29-9013-4b0d-851a-11ad3a6d39e8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a14e1b'},body:JSON.stringify({sessionId:'a14e1b',runId:'post-fix',hypothesisId:hypothesisId,location:location,message:message,data:data||{},timestamp:Date.now()})}).catch(()=>{});
     }
     function measureBgSwap(hypothesisId, location, el, url, extra) {
         const t0 = performance.now();
@@ -182,23 +195,61 @@
         img.onload = function() {
             const ms = Math.round(performance.now() - t0);
             imageCacheStatus[url] = { complete: true, lastMs: ms };
-            dbg(hypothesisId, location, 'bg_swap_complete', Object.assign({url:url,ms:ms,alreadyComplete:alreadyComplete,prev:prev,errorCount:errorCount,foundItems:foundItems.slice()}, extra||{}));
+            dbg(hypothesisId, location, 'bg_swap_complete', Object.assign({url:url,ms:ms,alreadyComplete:alreadyComplete,preloadReady:preloadReady,prev:prev,errorCount:errorCount,foundItems:foundItems.slice()}, extra||{}));
         };
         img.onerror = function() {
-            dbg(hypothesisId, location, 'bg_swap_error', Object.assign({url:url,ms:Math.round(performance.now()-t0),alreadyComplete:alreadyComplete}, extra||{}));
+            dbg(hypothesisId, location, 'bg_swap_error', Object.assign({url:url,ms:Math.round(performance.now()-t0),alreadyComplete:alreadyComplete,preloadReady:preloadReady}, extra||{}));
         };
         img.src = url;
-        dbg(hypothesisId, location, 'bg_swap_start', Object.assign({url:url,alreadyComplete:alreadyComplete,prev:prev,errorCount:errorCount,foundItems:foundItems.slice()}, extra||{}));
+        dbg(hypothesisId, location, 'bg_swap_start', Object.assign({url:url,alreadyComplete:alreadyComplete,preloadReady:preloadReady,prev:prev,errorCount:errorCount,foundItems:foundItems.slice()}, extra||{}));
     }
     // #endregion
 
+    function preloadGameImages() {
+        const t0 = performance.now();
+        let loaded = 0;
+        const total = PRELOAD_URLS.length;
+        // #region agent log
+        dbg('A', 'preloadGameImages', 'preload_start', {total:total});
+        // #endregion
+        PRELOAD_URLS.forEach(function(url) {
+            const img = new Image();
+            img.onload = function() {
+                loaded++;
+                imageCacheStatus[url] = { complete: true, lastMs: 0 };
+                if (loaded === total) {
+                    preloadReady = true;
+                    // #region agent log
+                    dbg('A', 'preloadGameImages', 'preload_done', {total:total,ms:Math.round(performance.now()-t0)});
+                    // #endregion
+                }
+            };
+            img.onerror = function() {
+                loaded++;
+                // #region agent log
+                dbg('A', 'preloadGameImages', 'preload_error', {url:url,loaded:loaded,total:total});
+                // #endregion
+                if (loaded === total) {
+                    preloadReady = true;
+                }
+            };
+            img.src = url;
+            preloadedImages.push(img);
+        });
+    }
+
+    preloadGameImages();
+    // #region agent log
+    dbg('F', 'script', 'script_loaded', {hasStartGame:typeof startGame === 'function'});
+    // #endregion
+
     function startGame() {
+        // #region agent log
+        dbg('F', 'startGame', 'start_clicked', {preloadReady:preloadReady});
+        // #endregion
         document.getElementById('screen-cover').classList.remove('active');
         document.getElementById('screen-game').classList.add('active');
         resetGameData();
-        // #region agent log
-        dbg('A', 'startGame', 'game_started', {cacheKeys:Object.keys(imageCacheStatus)});
-        // #endregion
     }
 
     function resetGameData() {
@@ -211,7 +262,7 @@
         if (e.target === this) {
             errorCount++;
             // #region agent log
-            dbg('B', 'wrongClick', 'wrong_click', {errorCount:errorCount,targetTag:e.target.id,sameUrlAgain:document.getElementById('game-room').style.backgroundImage.indexOf('找錯了')!==-1});
+            dbg('B', 'wrongClick', 'wrong_click', {errorCount:errorCount});
             // #endregion
             measureBgSwap('B', 'wrongClick', document.getElementById('game-room'), '找錯了.png', {action:'wrong'});
         }
