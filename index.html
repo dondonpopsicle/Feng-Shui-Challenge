@@ -167,23 +167,53 @@
 <script>
     let foundItems = [];
     let errorCount = 0;
+    const imageCacheStatus = {};
+
+    // #region agent log
+    function dbg(hypothesisId, location, message, data) {
+        fetch('http://127.0.0.1:7370/ingest/6ef55512-ae4e-4d4b-a1b8-01ea756a5133',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd60a9'},body:JSON.stringify({sessionId:'cd60a9',runId:'pre-fix',hypothesisId:hypothesisId,location:location,message:message,data:data||{},timestamp:Date.now()})}).catch(()=>{});
+    }
+    function measureBgSwap(hypothesisId, location, el, url, extra) {
+        const t0 = performance.now();
+        const prev = el.style.backgroundImage;
+        const alreadyComplete = !!(imageCacheStatus[url] && imageCacheStatus[url].complete);
+        el.style.backgroundImage = "url('" + url + "')";
+        const img = new Image();
+        img.onload = function() {
+            const ms = Math.round(performance.now() - t0);
+            imageCacheStatus[url] = { complete: true, lastMs: ms };
+            dbg(hypothesisId, location, 'bg_swap_complete', Object.assign({url:url,ms:ms,alreadyComplete:alreadyComplete,prev:prev,errorCount:errorCount,foundItems:foundItems.slice()}, extra||{}));
+        };
+        img.onerror = function() {
+            dbg(hypothesisId, location, 'bg_swap_error', Object.assign({url:url,ms:Math.round(performance.now()-t0),alreadyComplete:alreadyComplete}, extra||{}));
+        };
+        img.src = url;
+        dbg(hypothesisId, location, 'bg_swap_start', Object.assign({url:url,alreadyComplete:alreadyComplete,prev:prev,errorCount:errorCount,foundItems:foundItems.slice()}, extra||{}));
+    }
+    // #endregion
 
     function startGame() {
         document.getElementById('screen-cover').classList.remove('active');
         document.getElementById('screen-game').classList.add('active');
         resetGameData();
+        // #region agent log
+        dbg('A', 'startGame', 'game_started', {cacheKeys:Object.keys(imageCacheStatus)});
+        // #endregion
     }
 
     function resetGameData() {
         foundItems = [];
         errorCount = 0;
-        document.getElementById('game-room').style.backgroundImage = "url('進入遊戲的待機畫面.png')";
+        measureBgSwap('C', 'resetGameData', document.getElementById('game-room'), '進入遊戲的待機畫面.png', {action:'reset'});
     }
 
     document.getElementById('game-room').addEventListener('click', function(e) {
         if (e.target === this) {
             errorCount++;
-            document.getElementById('game-room').style.backgroundImage = "url('找錯了.png')";
+            // #region agent log
+            dbg('B', 'wrongClick', 'wrong_click', {errorCount:errorCount,targetTag:e.target.id,sameUrlAgain:document.getElementById('game-room').style.backgroundImage.indexOf('找錯了')!==-1});
+            // #endregion
+            measureBgSwap('B', 'wrongClick', document.getElementById('game-room'), '找錯了.png', {action:'wrong'});
         }
     });
 
@@ -193,13 +223,11 @@
         if (!foundItems.includes(id)) {
             foundItems.push(id);
             
-            if (id === 1) {
-                document.getElementById('game-room').style.backgroundImage = "url('第一個點.png')";
-            } else if (id === 2) {
-                document.getElementById('game-room').style.backgroundImage = "url('第二個點.png')";
-            } else if (id === 3) {
-                document.getElementById('game-room').style.backgroundImage = "url('第三個點.png')";
-            }
+            var url = id === 1 ? '第一個點.png' : (id === 2 ? '第二個點.png' : '第三個點.png');
+            // #region agent log
+            dbg('A', 'clickCorrect', 'correct_click', {id:id,url:url,errorCount:errorCount,foundCount:foundItems.length});
+            // #endregion
+            measureBgSwap('A', 'clickCorrect', document.getElementById('game-room'), url, {action:'correct',id:id});
         }
 
         if (foundItems.length === 3) {
@@ -212,14 +240,11 @@
         document.getElementById('screen-result').classList.add('active');
 
         const resultScreen = document.getElementById('result-screen');
-        
-        if (errorCount === 0) {
-            resultScreen.style.backgroundImage = "url('A等級.png')";
-        } else if (errorCount >= 1 && errorCount <= 3) {
-            resultScreen.style.backgroundImage = "url('B等級.png')";
-        } else {
-            resultScreen.style.backgroundImage = "url('C等級.png')";
-        }
+        var resultUrl = errorCount === 0 ? 'A等級.png' : (errorCount <= 3 ? 'B等級.png' : 'C等級.png');
+        // #region agent log
+        dbg('E', 'showResult', 'show_result', {errorCount:errorCount,resultUrl:resultUrl});
+        // #endregion
+        measureBgSwap('E', 'showResult', resultScreen, resultUrl, {action:'result'});
     }
 
     function openLine() {
